@@ -7,6 +7,7 @@ from __future__ import annotations
 import io
 import json
 from dataclasses import fields
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -39,6 +40,7 @@ def plot(container, fig, **kw):
     """Render a Plotly figure with an automatically unique key (the same figure may appear in two tabs)."""
     _plot_counter[0] += 1
     kw.setdefault("width", "stretch")
+    kw.setdefault("theme", None)
     return container.plotly_chart(fig, key=f"plot_{_plot_counter[0]}", **kw)
 
 
@@ -696,3 +698,14 @@ modelled; amplifier gain is flat and instantaneous; dispersion uses Gaussian-pul
 approximation (a zero-error Monte-Carlo run gives only an upper bound); traffic balancing and protection switching are
 network-level simulations without a physical switching fabric. No value here is a measurement of real hardware.
 """)
+    st.markdown("**Documents**")
+    doc_cols = st.columns(2)
+    for doc_col, doc_name, doc_key in (
+            (doc_cols[0], "WDM_System_Working_and_Theory_Tutorial.pdf", "dl_doc_tutorial"),
+            (doc_cols[1], "WDM_System_Configuration_Reference.pdf", "dl_doc_config_reference")):
+        try:
+            doc_bytes = (Path(__file__).parent / doc_name).read_bytes()
+        except OSError:
+            doc_col.info(f"{doc_name} not found in the project folder")
+            continue
+        doc_col.download_button(f"Download {doc_name[:-4]} (PDF)", doc_bytes, doc_name, "application/pdf", key=doc_key)
