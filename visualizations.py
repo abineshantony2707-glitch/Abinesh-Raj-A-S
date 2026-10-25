@@ -80,29 +80,37 @@ def fig_block_diagram(cfg, link, table, pipeline: List[dict]) -> go.Figure:
                           font=dict(size=size, color=color), align="center"))
 
     n = link.n
-    show_n = min(n, 4)
+    show_n = n
     statuses = list(table["status"])
     col_of = {"OK": ok, "DEGRADED": warn, "FAILED": bad}
     ys = [52.0, 44.5, 37.0, 29.5][:show_n] if show_n > 1 else [40.0]
     if show_n == 4:
         ys = [53.0, 45.0, 37.0, 29.0]
     yc = 40.0
+    # layout constants: unchanged for n <= 4; computed for n > 4 (every channel is drawn)
+    dy, up, hh, f, fsz = 0, 0, 3, 1, 13
+    if n > 4:
+        pitch = max(3.6, 32 / (n - 1))
+        ys = [yc + (n - 1) / 2 * pitch - i * pitch for i in range(n)]
+        hh = min(3, 0.4 * pitch)
+        f = hh / 3                                   # scale of the laser / photodiode symbols
+        fsz = 13 if n <= 8 else 11
+        dy = 25.0 - (min(ys) - 4)                    # extra height needed below the channel rows
+        up = max(0.0, max(ys) + 4 - 57.0)            # extra height needed above (header labels)
     mid = float(np.mean(ys))
 
     # --- transmitters: laser symbols
     for i, y in enumerate(ys):
         failed = bool(link.failed[i])
-        rect(1, y - 3, 9, y + 3, "#e8f1fb" if not failed else "#f3d6d6", line=bad if failed else "#1f77b4")
-        label(3.4, y, f"<b>λ{i + 1}</b>", 13)
+        rect(1, y - hh, 9, y + hh, "#e8f1fb" if not failed else "#f3d6d6", line=bad if failed else "#1f77b4")
+        label(3.4, y, f"<b>λ{i + 1}</b>", fsz)
         # laser-diode symbol (triangle + bar) and emitted wave
-        poly([(5.3, y - 1.6), (5.3, y + 1.6), (7.3, y)], bad if failed else "#1f77b4", line=ink)
-        line(7.3, y - 1.8, 7.3, y + 1.8)
+        poly([(5.3, y - 1.6 * f), (5.3, y + 1.6 * f), (7.3, y)], bad if failed else "#1f77b4", line=ink)
+        line(7.3, y - 1.8 * f, 7.3, y + 1.8 * f)
         line(9, y, 14.5, y, color=off if failed else "#1f77b4", width=3)
         arrow(12.0, y, 14.5, y, off if failed else "#1f77b4")
-    if n > show_n:
-        label(5, ys[-1] - 6.5, f"⋮ ({n} channels)", 13)
-    label(5, 68.0, "Transmitters", 15, bold=True)
-    label(5, 64.6, "Lasers (data ➜ light)", 12, "#52606d")
+    label(5, 68.0 + up, "Transmitters", 15, bold=True)
+    label(5, 64.6 + up, "Lasers (data ➜ light)", 12, "#52606d")
 
     # --- multiplexer: trapezoid
     top, bot = max(ys) + 4, min(ys) - 4
@@ -137,9 +145,9 @@ def fig_block_diagram(cfg, link, table, pipeline: List[dict]) -> go.Figure:
     cx = fx0 + 3.0
     for k, (txt, on) in enumerate(chips):
         x0 = cx + k * 10.4
-        rect(x0, 20.0, x0 + 9.6, 24.4, "#eaf6ea" if on else "#eceff1", line=ok if on else off, dash=None if on else "dot")
-        label(x0 + 4.8, 22.2, txt, 12, ink if on else "#6b7280")
-    label((fx0 + fx1) / 2, 18.3, "impairments added along the link", 11, "#7b8794")
+        rect(x0, 20.0 - dy, x0 + 9.6, 24.4 - dy, "#eaf6ea" if on else "#eceff1", line=ok if on else off, dash=None if on else "dot")
+        label(x0 + 4.8, 22.2 - dy, txt, 12, ink if on else "#6b7280")
+    label((fx0 + fx1) / 2, 18.3 - dy, "impairments added along the link", 11, "#7b8794")
     if amp_on and place == "In-line":
         for k in range(cfg.amp.n_inline):
             xa = fx0 + (fx1 - fx0) * (k + 1) / (cfg.amp.n_inline + 1)
@@ -173,16 +181,14 @@ def fig_block_diagram(cfg, link, table, pipeline: List[dict]) -> go.Figure:
     for i, y in enumerate(ys):
         c = col_of.get(statuses[i], off)
         line(xdem0 + 9.5, y, xdem0 + 14.0, y, c, 3)
-        poly([(xdem0 + 14.0, y + 1.8), (xdem0 + 14.0, y - 1.8), (xdem0 + 16.4, y)], "#f1f5f9", line=ink)
-        line(xdem0 + 16.4, y - 2.0, xdem0 + 16.4, y + 2.0)
+        poly([(xdem0 + 14.0, y + 1.8 * f), (xdem0 + 14.0, y - 1.8 * f), (xdem0 + 16.4, y)], "#f1f5f9", line=ink)
+        line(xdem0 + 16.4, y - 2.0 * f, xdem0 + 16.4, y + 2.0 * f)
         line(xdem0 + 16.4, y, xdem0 + 18.2, y, c, 2)
-        rect(xdem0 + 18.2, y - 3, xdem0 + 26.6, y + 3, c, line=ink, opacity=0.85)
-        label(xdem0 + 22.4, y, f"Rx{i + 1}", 13, "white", bold=True)
-    if n > show_n:
-        label(xdem0 + 22.4, ys[-1] - 6.5, "⋮", 14)
-    label(xdem0 + 14.5, 68.0, "Receivers", 15, bold=True)
-    label(xdem0 + 14.5, 64.6, "Photodiode (light ➜ current)", 12, "#52606d")
-    label(xdem0 + 14.5, 61.4, "box colour = channel status", 11, "#7b8794")
+        rect(xdem0 + 18.2, y - hh, xdem0 + 26.6, y + hh, c, line=ink, opacity=0.85)
+        label(xdem0 + 22.4, y, f"Rx{i + 1}", fsz, "white", bold=True)
+    label(xdem0 + 14.5, 68.0 + up, "Receivers", 15, bold=True)
+    label(xdem0 + 14.5, 64.6 + up, "Photodiode (light ➜ current)", 12, "#52606d")
+    label(xdem0 + 14.5, 61.4 + up, "box colour = channel status", 11, "#7b8794")
 
     # --- processing chain (second row)
     st_map = {s["stage"]: s["state"] for s in pipeline}
@@ -195,7 +201,7 @@ def fig_block_diagram(cfg, link, table, pipeline: List[dict]) -> go.Figure:
     fill = {"ok": "#e6f4ea", "warn": "#fff1d6", "error": "#f9dede", "off": "#eceff1"}
     edge = {"ok": ok, "warn": warn, "error": bad, "off": off}
     w, gap, x = 15.5, 3.4, 1.0
-    y0, y1 = 2.0, 11.0
+    y0, y1 = 2.0 - dy, 11.0 - dy
     centers = []
     for k, (txt, state) in enumerate(blocks):
         rect(x, y0, x + w, y1, fill[state], line=edge[state], dash=None if state != "off" else "dot")
@@ -206,16 +212,16 @@ def fig_block_diagram(cfg, link, table, pipeline: List[dict]) -> go.Figure:
         x += w + gap
     # receivers feed the signal-analysis block
     xr = xdem0 + 22.4
-    line(xr, min(ys) - 9.0, xr, 15.0, "#52606d", 2, "dash")
-    line(xr, 15.0, centers[2], 15.0, "#52606d", 2, "dash")
-    arrow(centers[2], 15.0, centers[2], y1 + 0.2, "#52606d")
-    label(centers[2] + 14.5, 17.6, "detected data", 11, "#7b8794")
-    label(55, -1.2, "Processing chain (software)", 11, "#7b8794")
+    line(xr, min(ys) - 9.0, xr, 15.0 - dy, "#52606d", 2, "dash")
+    line(xr, 15.0 - dy, centers[2], 15.0 - dy, "#52606d", 2, "dash")
+    arrow(centers[2], 15.0 - dy, centers[2], y1 + 0.2, "#52606d")
+    label(centers[2] + 14.5, 17.6 - dy, "detected data", 11, "#7b8794")
+    label(55, -1.2 - dy, "Processing chain (software)", 11, "#7b8794")
 
-    fig.update_layout(shapes=shapes, annotations=notes, template=TEMPLATE, height=560, font=dict(size=14),
-                      margin=dict(l=5, r=5, t=5, b=5), showlegend=False)
+    fig.update_layout(shapes=shapes, annotations=notes, template=TEMPLATE, height=560 + 30 * max(0, n - 4),
+                      font=dict(size=14), margin=dict(l=5, r=5, t=5, b=5), showlegend=False)
     fig.update_xaxes(visible=False, range=[-1, 111], fixedrange=True)
-    fig.update_yaxes(visible=False, range=[-3, 71], fixedrange=True)
+    fig.update_yaxes(visible=False, range=[-3 - dy, 71 + up], fixedrange=True)
     return fig
 
 
