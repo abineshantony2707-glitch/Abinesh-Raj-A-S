@@ -4,6 +4,7 @@ Run:  streamlit run app.py
 """
 from __future__ import annotations
 
+import base64
 import io
 import json
 from dataclasses import fields
@@ -12,6 +13,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 
 import fiber_models as fm
 import performance as perf
@@ -248,13 +250,15 @@ st.markdown(
     button[data-baseweb="tab"] p { font-size: 1.12rem; font-weight: 600; }
     [data-testid="stMetricValue"] { font-size: 2.1rem; }
     [data-testid="stMetricLabel"] p { font-size: 1.0rem; }
+    [id$="-tabpanel-0"] [data-testid="stAlert"] p,
+    [id$="-tabpanel-0"] [data-testid="stCaptionContainer"] p { text-align: justify; }
     .wdm-title { font-weight: 800; font-size: 2.7rem; line-height: 1.15; margin: 0 0 0.6rem 0; }
     </style>
     <div class="wdm-title">Wavelength Division Multiplexing (WDM)</div>
     """, unsafe_allow_html=True)
 
 TABS = ["Overview", "Fibre", "WDM", "Tx/Rx", "Noise", "Amplifier", "Dispersion",
-        "Signals", "Performance", "Traffic", "Failure", "Summary"]
+        "Signals", "Performance", "Traffic", "Failure", "Summary", "Documents ▾"]
 tabs = st.tabs(TABS)
 
 # ============================================================================ 1 overview
@@ -698,14 +702,23 @@ modelled; amplifier gain is flat and instantaneous; dispersion uses Gaussian-pul
 approximation (a zero-error Monte-Carlo run gives only an upper bound); traffic balancing and protection switching are
 network-level simulations without a physical switching fabric. No value here is a measurement of real hardware.
 """)
-    st.markdown("**Documents**")
-    doc_cols = st.columns(2)
-    for doc_col, doc_name, doc_key in (
-            (doc_cols[0], "WDM_System_Working_and_Theory_Tutorial.pdf", "dl_doc_tutorial"),
-            (doc_cols[1], "WDM_System_Configuration_Reference.pdf", "dl_doc_config_reference")):
-        try:
-            doc_bytes = (Path(__file__).parent / doc_name).read_bytes()
-        except OSError:
-            doc_col.info(f"{doc_name} not found in the project folder")
-            continue
-        doc_col.download_button(f"Download {doc_name[:-4]} (PDF)", doc_bytes, doc_name, "application/pdf", key=doc_key)
+
+# ============================================================================ 13 documents
+with tabs[12]:
+    st.subheader("Documents")
+    DOCS = {"WDM System - Working and Theory Tutorial": "WDM_System_Working_and_Theory_Tutorial.pdf",
+            "WDM System - Configuration Reference": "WDM_System_Configuration_Reference.pdf"}
+    doc_title = st.selectbox("Choose a document to view", list(DOCS), key="doc_choice")
+    doc_name = DOCS[doc_title]
+    try:
+        doc_bytes = (Path(__file__).parent / doc_name).read_bytes()
+    except OSError:
+        st.info(f"{doc_name} not found in the project folder")
+    else:
+        st.download_button("Download this document (PDF)", doc_bytes, doc_name, "application/pdf", key="dl_doc_" + doc_name)
+        if hasattr(st, "iframe"):                      # newer Streamlit: native PDF viewer
+            st.iframe(Path(__file__).parent / doc_name, height=820)
+        else:                                          # older Streamlit: embed as base64
+            doc_b64 = base64.b64encode(doc_bytes).decode()
+            components.html(f'<iframe src="data:application/pdf;base64,{doc_b64}" width="100%" height="820" '
+                            f'style="border:1px solid #ccc;"></iframe>', height=840)
